@@ -1,0 +1,22 @@
+[package]
+name = "example-2pc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+scupt-net = { git = "https://github.com/scuptio/scupt-net.git" }
+sedeve-kit = { git = "https://github.com/scuptio/sedeve-kit.git" }
+scupt-util =  { git = "https://github.com/scuptio/scupt-util.git" }
+tracing = "0.1.36"
+async-backtrace = "0.2.5"
+tokio = { version = "1.28.0", features = ["full", "tracing"] }
+async-trait = "0.1.60"
+bincode = "2.0.0-rc.2"
+serde = "1.0.151"
+serde_json = { version = "1.0.91", features = ["std", "arbitrary_precision", "preserve_order"] }
+project-root = "0.2.2"
+rand = "0.8.5"
+tracing-subscriber = "0.3.16"
