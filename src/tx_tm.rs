@@ -1,34 +1,31 @@
-use scupt_net::message_sender::Sender;
-use scupt_net::opt_send::OptSend;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use scupt_net::message_sender_async::SenderAsync;
 use scupt_net::notifier::Notifier;
+use scupt_net::opt_send::OptSend;
+use scupt_net::task::spawn_local_task;
 use scupt_util::error_type::ET;
 use scupt_util::id::XID;
 use scupt_util::message::Message;
+use scupt_util::mt_set::MTSet;
 use scupt_util::node_id::NID;
 use scupt_util::res::Res;
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use scupt_net::task::spawn_local_task;
-use scupt_util::mt_set::MTSet;
 use scupt_util::res_of::res_option;
 use sedeve_kit::{auto_enable, internal_begin, internal_end, output};
 use tokio::select;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
-use sedeve_kit::player::automata;
-use crate::name::TX_COORD_COMMIT;
 use tracing::{debug, debug_span, Instrument, trace};
+
 use crate::dtm_testing_msg::{DTMTesting, MTAccess, MTState};
-
-
+use crate::name::TX_COORD_COMMIT;
 use crate::rm_state::RMState;
 use crate::tm_state::TMState;
-
 use crate::tx_coord_event::TxCoordEvent;
 use crate::tx_msg::{MTxMsg, TxMsg};
-
-use crate::tx_msg_to_tm::{MPrepareResp, MsgToTM};
 use crate::tx_msg_to_rm::{MPrepare, MsgToRM};
+use crate::tx_msg_to_tm::{MPrepareResp, MsgToTM};
 
 pub struct TxTM {
     _xid: XID,
@@ -39,7 +36,7 @@ pub struct TxTM {
 }
 
 struct _TxTM {
-    channel: Arc<dyn Sender<TxMsg>>,
+    channel: Arc<dyn SenderAsync<TxMsg>>,
     node_id: NID,
     xid: XID,
     state: TMState,
@@ -57,7 +54,7 @@ impl TxTM {
         node_id: NID, xid: XID,
         state: TMState,
         rm_ids: Vec<NID>,
-        channel: Arc<dyn Sender<TxMsg>>,
+        channel: Arc<dyn SenderAsync<TxMsg>>,
         sender: UnboundedSender<TxCoordEvent>,
         stop_notifier: Notifier,
     ) -> Arc<Self> {
@@ -159,7 +156,7 @@ impl _TxTM {
     fn new(node_id: NID, xid: XID,
            state: TMState,
            rm_ids: Vec<NID>,
-           channel: Arc<dyn Sender<TxMsg>>,
+           channel: Arc<dyn SenderAsync<TxMsg>>,
            sender: UnboundedSender<TxCoordEvent>,
     ) -> Self {
         let mut rm_state = HashMap::new();

@@ -1,16 +1,16 @@
 use std::collections::HashSet;
-use scupt_net::message_sender::Sender;
-use scupt_net::opt_send::OptSend;
+use std::sync::Arc;
+
+use scupt_net::message_sender_async::SenderAsync;
 use scupt_net::notifier::Notifier;
+use scupt_net::opt_send::OptSend;
+use scupt_net::task::spawn_local_task;
 use scupt_util::error_type::ET;
 use scupt_util::id::XID;
 use scupt_util::message::Message;
 use scupt_util::node_id::NID;
 use scupt_util::res::Res;
-use std::sync::Arc;
-use scupt_net::task::spawn_local_task;
 use scupt_util::res_of::res_option;
-use sedeve_kit::player::automata;
 use sedeve_kit::{auto_enable, output};
 use tokio::select;
 use tokio::sync::mpsc::{
@@ -19,15 +19,14 @@ use tokio::sync::mpsc::{
     UnboundedSender,
 };
 use tokio::sync::Mutex;
+
 use crate::dtm_testing_msg::{DTMTesting, MTAccess, MTState};
 use crate::name::TX_COORD_COMMIT;
 use crate::rm_state::RMState;
 use crate::tx_coord_event::TxCoordEvent;
 use crate::tx_msg::{MTxMsg, TxMsg};
-
-use crate::tx_msg_to_tm::{MPrepareResp, MsgToTM};
 use crate::tx_msg_to_rm::{MPrepare, MsgToRM};
-
+use crate::tx_msg_to_tm::{MPrepareResp, MsgToTM};
 
 pub struct TxRM {
     _xid: XID,
@@ -42,7 +41,7 @@ struct _TxRM {
     xid: XID,
     state: RMState,
     rm_id:HashSet<NID>,
-    channel: Arc<dyn Sender<TxMsg>>,
+    channel: Arc<dyn SenderAsync<TxMsg>>,
     sender: UnboundedSender<TxCoordEvent>,
 }
 
@@ -51,7 +50,7 @@ impl TxRM {
         nid: NID,
         xid: XID,
         state: RMState,
-        channel: Arc<dyn Sender<TxMsg>>,
+        channel: Arc<dyn SenderAsync<TxMsg>>,
         sender: UnboundedSender<TxCoordEvent>,
         stop_notifier: Notifier,
     ) -> Arc<Self> {
@@ -144,7 +143,7 @@ impl TxRM {
 impl _TxRM {
     fn new(node_id: NID, xid: XID,
            state: RMState,
-           channel: Arc<dyn Sender<TxMsg>>,
+           channel: Arc<dyn SenderAsync<TxMsg>>,
            sender: UnboundedSender<TxCoordEvent>,
     ) -> Self {
         Self {

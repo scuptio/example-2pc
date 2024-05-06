@@ -2,41 +2,35 @@
 pub mod tests {
     use std::collections::HashMap;
     use std::net::{IpAddr, SocketAddr};
-
     use std::sync::Arc;
     use std::thread;
-    use sedeve_kit::player::automata;
 
-    use tokio::runtime::Builder;
-    use tokio::task::{LocalSet};
-    use tracing::{debug, error};
-
-    use scupt_util::res::Res;
-
-    use scupt_util::node_id::NID;
-    use scupt_net::event_sink::ESServeOpt;
+    use scupt_net::es_option::ESServeOpt;
     use scupt_net::io_service::{IOService, IOServiceOpt};
-
+    use scupt_net::io_service_async::IOServiceAsync;
     use scupt_net::notifier::Notifier;
-
-    use crate::tx_msg::TxMsg;
-
     use scupt_net::task::spawn_local_task;
     use scupt_util::error_type::ET;
     use scupt_util::logger::logger_setup;
-    use sedeve_kit::player::dtm_player::{DTMPlayer, TestOption};
+    use scupt_util::node_id::NID;
+    use scupt_util::res::Res;
     use sedeve_kit::{auto_clear, auto_init};
-    use sedeve_kit::player::action_incoming::ActionIncoming;
-    use sedeve_kit::player::action_incoming_factory::ActionIncomingFactory;
-    use sedeve_kit::trace_gen::trace_reader::TraceReader;
-    use crate::name::TX_COORD_COMMIT;
+    use sedeve_kit::dtm::action_incoming::ActionIncoming;
+    use sedeve_kit::dtm::action_incoming_factory::ActionIncomingFactory;
+    use sedeve_kit::dtm::dtm_player::{DTMPlayer, TestOption};
+    use sedeve_kit::trace::trace_reader::TraceReader;
+    use tokio::runtime::Builder;
+    use tokio::task::LocalSet;
+    use tracing::{debug, error};
 
+    use crate::name::TX_COORD_COMMIT;
     use crate::test_data_path::tests::test_data_path;
+    use crate::tx_msg::TxMsg;
     use crate::tx_service::TxService;
 
     struct TestNode  {
         _coord_commit:Arc<TxService>,
-        _service:Arc<IOService<TxMsg>>,
+        _service: Arc<dyn IOServiceAsync<TxMsg>>,
         join_handle : thread::JoinHandle<()>,
     }
 
@@ -50,14 +44,17 @@ pub mod tests {
             debug!("run simulating {}", node_id);
             let opt = IOServiceOpt {
                 num_message_receiver: 1,
+                testing: true,
+                sync_service: false,
+                port_debug: None,
             };
-            let s =IOService::<TxMsg>::new(
+            let s = IOService::<TxMsg>::new_async_service(
                     node_id.clone(), name,
                     opt, notifier.clone())?;
-            let service = Arc::new(s);
-            let receivers = service.message_receiver();
-            let sink = service.default_event_sink();
-            let sender = service.default_message_sender();
+            let service = s;
+            let receivers = service.receiver();
+            let sink = service.default_sink();
+            let sender = service.default_sender();
             let r = Builder::new_multi_thread()
                 .enable_all()
                 .build()
@@ -111,7 +108,7 @@ pub mod tests {
                 });
 
 
-                ss.run(Some(ls), runtime);
+                ss.block_run(Some(ls), runtime);
             });
             Ok(Self {
                 _coord_commit: coord_commit,
@@ -173,8 +170,6 @@ pub mod tests {
             simulator_node:(NID, SocketAddr)
         ) -> Self {
             Self {
-
-
                 inner: TestTxCoordCommit::new(test_node.clone(), simulator_node.clone())
             }
         }
