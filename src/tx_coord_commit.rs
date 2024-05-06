@@ -2,15 +2,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use rand::prelude::*;
-use scupt_net::message_receiver::Receiver;
-use scupt_net::message_sender::Sender;
+use scupt_net::message_receiver_async::ReceiverAsync;
+use scupt_net::message_sender_async::SenderAsync;
 use scupt_net::notifier::Notifier;
 use scupt_util::id::XID;
 use scupt_util::message::Message;
 use scupt_util::node_id::NID;
 use scupt_util::res::Res;
 use sedeve_kit::{check, input, setup};
-use sedeve_kit::player::automata;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tracing::debug;
@@ -29,7 +28,7 @@ use crate::tx_tm::TxTM;
 /// struct TxCoordCommit definition
 pub struct TxCoordCommit {
     notify: Notifier,
-    channel: Vec<Arc<dyn Sender<TxMsg>>>,
+    channel: Vec<Arc<dyn SenderAsync<TxMsg>>>,
     node_id: NID,
     tm_map: Arc<Mutex<HashMap<XID, Arc<TxTM>>>>,
     rm_map: Arc<Mutex<HashMap<XID, Arc<TxRM>>>>,
@@ -41,7 +40,7 @@ pub struct TxCoordCommit {
 impl TxCoordCommit {
     pub fn new(
         node_id: NID,
-        sender: Arc<dyn Sender<TxMsg>>,
+        sender: Arc<dyn SenderAsync<TxMsg>>,
         notify: Notifier,
     ) -> Self {
         let (s, r) = unbounded_channel();
@@ -86,7 +85,7 @@ impl TxCoordCommit {
         Ok(())
     }
 
-    pub async fn incoming_message(&self, receiver: Arc<dyn Receiver<TxMsg>>) -> Res<()> {
+    pub async fn incoming_message(&self, receiver: Arc<dyn ReceiverAsync<TxMsg>>) -> Res<()> {
         loop {
             let m = receiver.receive().await?;
             debug!("NODE receive message: {:?}", m);
@@ -216,7 +215,7 @@ impl TxCoordCommit {
     }
 
 
-    async fn get_channel(&self) -> Res<Arc<dyn Sender<TxMsg>>> {
+    async fn get_channel(&self) -> Res<Arc<dyn SenderAsync<TxMsg>>> {
         let mut rng = thread_rng();
         let opt = self.channel.choose(&mut rng);
         match opt {
