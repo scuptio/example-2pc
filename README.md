@@ -40,9 +40,9 @@ to generate a trace database.
 
 To build *trace_gen*:
 ``` shell
-    git clone https://github.com/scuptio/sedeve-kit
-    cd sed sedeve-kit
-    cargo build
+   git clone https://github.com/scuptio/sedeve-kit.git
+   cd sedeve-kit
+   cargo install --path .
 ```
 To avoid the full path, one can add *trace_gen* to the PATH variable.
 
@@ -50,12 +50,13 @@ The following command generates a trace database for the action database we prev
 (The constant value in [mapping file](tlaplus/const_map/2pc_map_const.json) must be consistent with the constant value we
 specify in model checking [spec_2pc](tlaplus/doc/spec_2pc.md))
 ```
-trace_gen  
-    --state-db-path /home/ybbh/workspace/example-2pc/data/2pc_action.db
-    --out-db-path /home/ybbh/workspace/example-2pc/data/2pc_trace.db 
-    --intermediate-db-path /home/ybbh/workspace/example-2pc/data/2pc_trace.intermediate.db 
-    --map-const-path  /home/ybbh/workspace/example-2pc/tlapls/const_map/2pc_map_const.json
+sedeve_trace_gen  
+    --state-db-path [your path to]/example-2pc/data/2pc_action.db \
+    --out-trace-db-path [your path to]/example-2pc/data/2pc_trace.db \
+    --intermediate-db-path [your path to]/example-2pc/data/2pc_trace.intermediate.db \ 
+    --map-const-path  [your path to]/example-2pc/tlaplus/const_map/2pc_map_const.json
 ```
+
 The **trace_gen** command then outputs the trace database *2pc_trace.db*
 The generate intermediate database *2pc_trace.intermediate.db* is only used for failure recovery.
 

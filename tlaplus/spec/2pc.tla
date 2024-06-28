@@ -32,6 +32,8 @@ variables == <<
     __action__
 >>
 
+LIMIT_MAX == 10
+
 vars_rm == <<v_rm_state>>
 vars_tm == <<v_tm_state,  v_tm_rm_collection>>
 vars_limit == <<v_limit_timeout, v_limit_restart>>
@@ -169,53 +171,6 @@ MESSAGE_TYPE ==
     M_TM_ABORT, 
     M_RM_ABORTED_ACK
 }
-
-
-(*@begin@
-
-struct __ATxRMState {
-    xid: unknown XID,
-    state: RMState,
-}
-
-struct __ATxTMState {
-    xid: unknown XID,
-    state: RMState
-}
-
-struct __ATxInit {
-    v_rm_state: Set<__ATxRMState>,
-    v_tm_state: Set<__ATxTMState>
-}
-
-enum __Action {
-    Init(__ATxInit),
-    Receive(MsgTx),
-    Send(MsgTx),
-    Prepare(Tx),
-    TMCommit(Tx),
-    TMAbort(Tx),
-    TMPrepare(Tx),
-    RMAbort(Tx),
-    Restart
-}
-
-automaton TxCoordCommit {
-    input init_state(v_message: __ATxInit, source:NodeId, dest:NodeId)
-    input receive_message(v_message: MsgTx, source:NodeId, dest:NodeId)
-    output send_message(v_message:MsgTx, source:NodeId, dest:NodeId)
-    internal tm_prepare(v_message:Tx, source:NodeId, dest:NodeId)
-    internal tm_commit(v_message:Tx, source:NodeId, dest:NodeId)
-}M_D_TM_SEND_PREPARE
-
-
-automaton TestTxCoordCommit {
-    input incoming_action(v_message:Message<__Action>)
-}
-
-@end@*)
-
-
 
             
 _TypeInvariant == 
@@ -356,7 +311,7 @@ ActionSeqSetupAll ==
     ActionsFromHandle(
             State2PC,
             NODE_ID, 
-            ActionSetup, 
+            ActionInput, 
             M_D_SETUP
        )
 
@@ -364,7 +319,7 @@ ActionCheckState(_node_id) ==
     ActionsFromHandle(
             State2PC,
             {_node_id}, 
-            ActionCheck, 
+            ActionInput, 
             M_D_CHECK
        )
               
@@ -782,7 +737,7 @@ Restart(n) ==
      /\ LET a0 == ActionSeqSetupAll
             a1 == ActionCheckState(n)
             m == Message(n, n, M_D_RESTART, n)
-            a2 == Action(ActionSetup, m)
+            a2 == Action(ActionInput, m)
         IN SetAction(__action__, a0, a1 \o a2, ENABLE_ACTION)
      /\ UNCHANGED <<v_pc_state, v_message>>
                                 
@@ -809,18 +764,30 @@ Next ==
                 )
                /\ UNCHANGED <<vars_limit>>
              )
-            \/ (/\ v_limit_timeout + 1 <= LIMIT_TIMEOUT
+            \/ (/\ (\/ (/\ LIMIT_TIMEOUT < LIMIT_MAX
+                        /\ v_limit_timeout + 1 <= LIMIT_TIMEOUT
+                        /\ v_limit_timeout' = v_limit_timeout + 1
+                       )
+                    \/ (/\ LIMIT_TIMEOUT >= LIMIT_MAX
+                        /\ UNCHANGED << v_limit_timeout>>)
+                   )
                 /\ TMTimeout(n, x)
-                /\ v_limit_timeout' = v_limit_timeout + 1
                 /\ UNCHANGED <<v_limit_restart>>
                )
-            \/ (/\ v_limit_restart + 1 <= LIMIT_RESTART
+            \/ (/\ (\/ (/\ LIMIT_RESTART < LIMIT_MAX
+                        /\ v_limit_restart + 1 <= LIMIT_RESTART
+                        /\ v_limit_restart' = v_limit_restart + 1
+
+                        )
+                    \/ (/\ LIMIT_RESTART >= LIMIT_MAX
+                        /\ UNCHANGED <<v_limit_restart>>
+                       )
+                   )
                 /\ Restart(n)
-                /\ v_limit_restart' = v_limit_restart + 1
                 /\ UNCHANGED <<v_limit_timeout>>
                )
         )
-     /\ ENABLE_ACTION => __action__.i = __action__'.p  
+
 
 
     

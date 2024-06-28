@@ -15,11 +15,12 @@ pub struct TxService {
 
 impl TxService {
     pub fn new(
+        auto_name:String,
         node_id: NID,
         sender: Arc<dyn SenderAsync<TxMsg>>,
         notify: Notifier,
     ) -> Self {
-        let coord = TxCoordCommit::new(node_id, sender, notify);
+        let coord = TxCoordCommit::new(auto_name, node_id, sender, notify);
         Self {
             coord,
         }

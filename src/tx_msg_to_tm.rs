@@ -30,4 +30,6 @@ pub struct MPrepareResp {
     pub success:bool,
 }
 
-impl MsgTrait for MPrepareResp {}
+impl MsgTrait for MPrepareResp {
+
+}

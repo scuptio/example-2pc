@@ -9,13 +9,13 @@ use scupt_util::id::XID;
 use scupt_util::message::Message;
 use scupt_util::node_id::NID;
 use scupt_util::res::Res;
-use sedeve_kit::{check, input, setup};
+use sedeve_kit::input;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::sync::Mutex;
 use tracing::debug;
 
 use crate::dtm_testing_msg::{DTMTesting, MTState};
-use crate::name::TX_COORD_COMMIT;
+
 use crate::rm_state::RMState;
 use crate::tm_state::TMState;
 use crate::tx_coord_event::TxCoordEvent;
@@ -34,11 +34,13 @@ pub struct TxCoordCommit {
     rm_map: Arc<Mutex<HashMap<XID, Arc<TxRM>>>>,
     event_receiver: Arc<Mutex<UnboundedReceiver<TxCoordEvent>>>,
     event_sender: UnboundedSender<TxCoordEvent>,
+    auto_name:String,
 } // struct TxCoordCommit definition end
 
 /// TxCoordCommit implement
 impl TxCoordCommit {
     pub fn new(
+        auto_name:String,
         node_id: NID,
         sender: Arc<dyn SenderAsync<TxMsg>>,
         notify: Notifier,
@@ -52,6 +54,7 @@ impl TxCoordCommit {
             rm_map: Default::default(),
             event_receiver: Arc::new(Mutex::new(r)),
             event_sender: s,
+            auto_name,
         }
     }
 
@@ -105,13 +108,13 @@ impl TxCoordCommit {
         let _m = Message::new(message.clone(), source, dest);
         match message {
             TxMsg::TMMsg(m) => {
-                input!(TX_COORD_COMMIT, _m);
+                input!(self.auto_name.as_str(), _m);
                 // RM receive message from TM
                 let tx = self.get_rm(m.xid).await?;
                 tx.recv_msg(m.msg, source, dest).await?;
             }
             TxMsg::RMMsg(m) => {
-                input!(TX_COORD_COMMIT, _m);
+                input!(self.auto_name.as_str(), _m);
                 // TM receive message from RM
                 let tx = self.get_tm(m.xid).await?;
                 tx.recv_msg(m.msg, source, dest).await?;
@@ -119,19 +122,19 @@ impl TxCoordCommit {
             TxMsg::DTMTesting(m) => {
                 match &m {
                     DTMTesting::Restart(_nid) => {
-                        setup!(TX_COORD_COMMIT, _m);
+                        input!(self.auto_name.as_str(), _m);
                         self.restart().await?;
                     }
                     DTMTesting::Setup(s)=> {
-                        setup!(TX_COORD_COMMIT, _m);
+                        input!(self.auto_name.as_str(), _m);
                         self.setup(s.clone()).await?;
                     }
                     DTMTesting::Check(c) => {
-                        check!(TX_COORD_COMMIT, _m);
+                        input!(self.auto_name.as_str(), _m);
                         self.check(c.clone()).await?;
                     }
                     _ => {
-                        input!(TX_COORD_COMMIT, _m);
+                        input!(self.auto_name.as_str(), _m);
                         if let Some(xid) = &m.tm_xid() {
                             let tx = self.get_tm(xid.clone()).await?;
                             tx.recv_msg(MsgToTM::DTMTesting(m.clone()), source, dest).await?;
@@ -157,6 +160,7 @@ impl TxCoordCommit {
             None => {
                 let tx =
                     TxTM::new(
+                        self.auto_name.clone(),
                         self.node_id,
                         xid,
                         TMState::TMInvalid,
@@ -182,6 +186,7 @@ impl TxCoordCommit {
             None => {
                 let tx =
                     TxRM::new(
+                        self.auto_name.clone(),
                         self.node_id,
                         xid,
                         RMState::RMInvalid,
