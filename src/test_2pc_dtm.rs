@@ -23,7 +23,7 @@ pub mod tests {
     use tokio::task::LocalSet;
     use tracing::{debug, error};
 
-    use crate::name::TX_COORD_COMMIT;
+
     use crate::test_data_path::tests::test_data_path;
     use crate::tx_msg::TxMsg;
     use crate::tx_service::TxService;
@@ -36,6 +36,7 @@ pub mod tests {
 
     impl TestNode {
         fn start_node(
+            auto_name:String,
             node_id: NID,
             name:String,
             node_addr: SocketAddr,
@@ -65,7 +66,7 @@ pub mod tests {
             let _stop_notify_node = notifier.clone();
             let receiver = receivers[0].clone();
             let coord_commit = Arc::new(
-                TxService::new(node_id, sender, notifier.clone()));
+                TxService::new(auto_name, node_id, sender, notifier.clone()));
             let ss = service.clone();
 
             let cc1 = coord_commit.clone();
@@ -127,10 +128,12 @@ pub mod tests {
         node_id:NID,
         test_node:HashMap<NID, SocketAddr>,
         simulator_node:(NID, SocketAddr),
+        auto_name:String,
     }
 
     impl TestTxCoordCommit {
         fn new(
+            auto_name:String,
             test_node:HashMap<NID, SocketAddr>,
             simulator_node:(NID, SocketAddr)
         ) -> Self {
@@ -138,6 +141,7 @@ pub mod tests {
                 node_id: 1234,
                 test_node,
                 simulator_node,
+                auto_name,
             }
         }
 
@@ -147,6 +151,7 @@ pub mod tests {
             for (n, addr) in self.test_node.iter() {
                 let name = format!("test_{}", n);
                 let node = TestNode::start_node(
+                    self.auto_name.clone(),
                     n.clone(),
                     name,
                     addr.clone(),
@@ -166,11 +171,12 @@ pub mod tests {
 
     impl TestContext {
         fn new(
+            auto_name:String,
             test_node:HashMap<NID, SocketAddr>,
             simulator_node:(NID, SocketAddr)
         ) -> Self {
             Self {
-                inner: TestTxCoordCommit::new(test_node.clone(), simulator_node.clone())
+                inner: TestTxCoordCommit::new(auto_name, test_node.clone(), simulator_node.clone())
             }
         }
 
@@ -202,7 +208,7 @@ pub mod tests {
             let node_id = self.inner.node_id.clone();
             let addr_str = player_addr.to_string();
             auto_init!(
-                TX_COORD_COMMIT,
+                self.inner.auto_name.as_str(),
                 node_id,
                 player_node_id,
                 addr_str.as_str()
@@ -228,13 +234,14 @@ pub mod tests {
             for node in nodes {
                 node.join();
             }
-            auto_clear!(TX_COORD_COMMIT);
+            auto_clear!(self.inner.auto_name.as_str());
             Ok(())
         }
     }
 
 
     pub fn test_2pc_dtm(
+        auto_name:String,
         port_base:u16,
         num_node:u64,
         from_db_path:Result<String, String>) {
@@ -249,6 +256,7 @@ pub mod tests {
             test_node.insert(i as NID, addr);
         }
         let ctx = TestContext::new(
+            auto_name,
             test_node, simulator_node);
         if let Ok(p) = from_db_path {
             let path = test_data_path(p);

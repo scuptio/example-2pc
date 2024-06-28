@@ -7,12 +7,12 @@
 **NODE_ID**: node id set 
 
 ```
-    {A_n1, A_n2, A_n3}
+    {A_n1, A_n2}
 ```
 
 **XID**: transaction id set
 ```
-    {A_x1}
+    {A_x1, A_x2}
 ```
 
 **DB_ACTION_PATH** DB path to write action output

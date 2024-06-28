@@ -19,7 +19,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, debug_span, Instrument, trace};
 
 use crate::dtm_testing_msg::{DTMTesting, MTAccess, MTState};
-use crate::name::TX_COORD_COMMIT;
+
 use crate::rm_state::RMState;
 use crate::tm_state::TMState;
 use crate::tx_coord_event::TxCoordEvent;
@@ -47,10 +47,12 @@ struct _TxTM {
     rm_id:HashSet<NID>,
     rm_state: HashMap<NID, RMState>,
     sender: UnboundedSender<TxCoordEvent>,
+    auto_name:String,
 }
 
 impl TxTM {
     pub fn new(
+        auto_name:String,
         node_id: NID, xid: XID,
         state: TMState,
         rm_ids: Vec<NID>,
@@ -59,7 +61,7 @@ impl TxTM {
         stop_notifier: Notifier,
     ) -> Arc<Self> {
         let (s, r) = unbounded_channel();
-        let inner = Mutex::new(_TxTM::new(node_id, xid, state, rm_ids, channel, sender));
+        let inner = Mutex::new(_TxTM::new(auto_name, node_id, xid, state, rm_ids, channel, sender));
         let name = format!("tm_{}", xid);
         let notify = Notifier::new_with_name(name.clone());
         let tm = Self {
@@ -153,7 +155,9 @@ impl TxTM {
 }
 
 impl _TxTM {
-    fn new(node_id: NID, xid: XID,
+    fn new(
+            auto_name:String,
+            node_id: NID, xid: XID,
            state: TMState,
            rm_ids: Vec<NID>,
            channel: Arc<dyn SenderAsync<TxMsg>>,
@@ -174,6 +178,7 @@ impl _TxTM {
             rm_id: Default::default(),
             rm_state,
             sender,
+            auto_name,
         }
     }
 
@@ -287,13 +292,13 @@ impl _TxTM {
 
     async fn tm_send_commit(&mut self) -> Res<()> {
         let _m = Message::new(TxMsg::DTMTesting(DTMTesting::TMSendCommit(self.xid)), self.node_id, self.node_id);
-        internal_begin!(TX_COORD_COMMIT, _m.clone());
+        internal_begin!(self.auto_name.as_str(), _m.clone());
         debug!("{} tm send commit", self.xid);
         // PREPARING, COMMITTING
         if self.state == TMState::TMPreparing {
             self.state = TMState::TMCommitting;
         }
-        internal_end!(TX_COORD_COMMIT, _m.clone());
+        internal_end!(self.auto_name.as_str(), _m.clone());
         if self.state == TMState::TMCommitting {
             self.tm_commit().await?;
         }
@@ -304,14 +309,14 @@ impl _TxTM {
 
     async fn tm_send_abort(&mut self) -> Res<()> {
         let _m = Message::new(TxMsg::DTMTesting(DTMTesting::TMSendAbort(self.xid)), self.node_id, self.node_id);
-        internal_begin!(TX_COORD_COMMIT, _m.clone());
+        internal_begin!(self.auto_name.as_str(), _m.clone());
         debug!("{} tm send abort", self.xid);
         // RUNNING, PREPARING, ABORTING
         if self.state == TMState::TMPreparing ||
             self.state == TMState::TMRunning {
             self.state = TMState::TMAborting;
         }
-        internal_end!(TX_COORD_COMMIT, _m.clone());
+        internal_end!(self.auto_name.as_str(), _m.clone());
         if self.state == TMState::TMAborting {
             self.tm_abort().await?;
         }
@@ -397,12 +402,12 @@ impl _TxTM {
 
     async fn tm_committed_inner(&mut self) -> Res<()> {
         let _m = Message::new(TxMsg::DTMTesting(DTMTesting::TMCommitted(self.xid)), self.node_id, self.node_id);
-        internal_begin!(TX_COORD_COMMIT, _m.clone());
+        internal_begin!(self.auto_name.as_str(), _m.clone());
         if self.state == TMState::TMCommitting {
             self.state = TMState::TMCommitted;
             self.end()?;
         }
-        internal_end!(TX_COORD_COMMIT, _m.clone());
+        internal_end!(self.auto_name.as_str(), _m.clone());
         Ok(())
     }
 
@@ -413,12 +418,12 @@ impl _TxTM {
 
     async fn tm_aborted_inner(&mut self) -> Res<()> {
         let _m = Message::new(TxMsg::DTMTesting(DTMTesting::TMAborted(self.xid)), self.node_id, self.node_id);
-        internal_begin!(TX_COORD_COMMIT, _m.clone());
+        internal_begin!(self.auto_name.as_str(), _m.clone());
         if self.state == TMState::TMAborting {
             self.state = TMState::TMAborted;
             self.end()?;
         }
-        internal_end!(TX_COORD_COMMIT, _m.clone());
+        internal_end!(self.auto_name.as_str(), _m.clone());
         Ok(())
     }
 
@@ -521,8 +526,8 @@ impl _TxTM {
         ), self.node_id, dest);
 
         let _m = m.clone();
-        output!(TX_COORD_COMMIT, _m);
-        if auto_enable!(TX_COORD_COMMIT) {
+        output!(self.auto_name.as_str(), _m);
+        if auto_enable!(self.auto_name.as_str()) {
             return Ok(())
         }
 

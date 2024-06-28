@@ -21,7 +21,7 @@ use tokio::sync::mpsc::{
 use tokio::sync::Mutex;
 
 use crate::dtm_testing_msg::{DTMTesting, MTAccess, MTState};
-use crate::name::TX_COORD_COMMIT;
+
 use crate::rm_state::RMState;
 use crate::tx_coord_event::TxCoordEvent;
 use crate::tx_msg::{MTxMsg, TxMsg};
@@ -43,10 +43,12 @@ struct _TxRM {
     rm_id:HashSet<NID>,
     channel: Arc<dyn SenderAsync<TxMsg>>,
     sender: UnboundedSender<TxCoordEvent>,
+    auto_name:String,
 }
 
 impl TxRM {
     pub fn new(
+        auto_name:String,
         nid: NID,
         xid: XID,
         state: RMState,
@@ -61,7 +63,7 @@ impl TxRM {
             notify,
             sender: s,
             receiver: Mutex::new(r),
-            inner: Mutex::new(_TxRM::new(nid, xid, state, channel, sender)),
+            inner: Mutex::new(_TxRM::new(auto_name, nid, xid, state, channel, sender)),
         };
         let name = format!("rm_{}", xid);
         let rm_p1 = Arc::new(rm);
@@ -141,12 +143,15 @@ impl TxRM {
 }
 
 impl _TxRM {
-    fn new(node_id: NID, xid: XID,
+    fn new(
+        auto_name:String,
+        node_id: NID, xid: XID,
            state: RMState,
            channel: Arc<dyn SenderAsync<TxMsg>>,
            sender: UnboundedSender<TxCoordEvent>,
     ) -> Self {
         Self {
+            auto_name,
             node_id,
             xid,
             state,
@@ -239,8 +244,8 @@ impl _TxRM {
             dest);
 
         let _m = m.clone();
-        output!(TX_COORD_COMMIT, _m);
-        if auto_enable!(TX_COORD_COMMIT) {
+        output!(self.auto_name.as_str(), _m);
+        if auto_enable!(self.auto_name.as_str()) {
            return Ok(())
         }
 

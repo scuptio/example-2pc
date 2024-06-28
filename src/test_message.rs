@@ -1,6 +1,7 @@
 #[cfg(test)]
-mod tests {
+mod test {
     use scupt_util::id::XID;
+    use scupt_util::logger::logger_setup;
     use scupt_util::message::{Message, MsgTrait, test_check_message};
     use scupt_util::mt_map::KeyValue;
     use crate::dtm_testing_msg::{DTMTesting, MTAccess, MTRMState, MTState, MTTMState};
@@ -12,7 +13,8 @@ mod tests {
     use crate::tx_msg_to_tm::{MPrepareResp, MsgToTM};
 
     #[test]
-    fn test() {
+    fn test_2pc_message() {
+        logger_setup("debug");
         let vec1 = vec![
             DTMTesting::Restart(1),
             DTMTesting::TxBegin(1),
